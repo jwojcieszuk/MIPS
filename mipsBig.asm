@@ -13,9 +13,10 @@
 		.data
 msg0:		.asciiz "Give two numbers: "
 msg1:		.asciiz "Addition or multiplication?(+/*)"
+msg2:		.asciiz "Perform tests or run normally?(T/N)"
+msg3: 		.asciiz "Result: "
+msg4: 		.asciiz "Continue?(Y/N)\n"
 
-res: 		.asciiz "Result: "
-cont: 		.asciiz "Continue?(Y/N)\n"
 newline:	.asciiz "\n"
 	
 input:		.space 64
@@ -34,8 +35,6 @@ size:		.word 9
 
 answ:		.space 2
 num:		.word 429496729 #2^32/10
-
-rem_arr:	.space 40
 
 		.text
 main:
@@ -82,6 +81,8 @@ main:
 	beq, 	$t0, '*', multiplication
 	
 	b end_program
+	
+##################################################
 read_numbers:
 	
 	li $v0, 8
@@ -129,7 +130,8 @@ done:
 	move $v1, $t1
 	
 	jr $ra
-		
+	
+##################################################		
 addition:
 	
 	#t1 high half
@@ -143,7 +145,8 @@ addition:
 	move $a1, $t1
 		
 	b itos
-		
+	
+##################################################	
 multiplication:
 	#CLL -  low 32-bits of low 64-bits of 128-bit result C ##$t0
 	#CLH = high 32-bits of low 64-bits of 128-bit result C ##$t6
@@ -183,12 +186,12 @@ multiplication:
 	addu $t9, $t3, $t5
 	addu $t9, $t9, $t7
 		
-	jr $ra	
-
-itos:
- 				#a0 low
-  				#a1 high
-  				
+	move $a1, $t6
+	move $s7, $t0
+	
+	b itos
+##################################################
+itos:				
 	la 	$s6, out 	#output
 	li 	$s0, 10 	#divisor		
 	lw 	$t7, num 	#first quotient of 2^32/10	
@@ -198,22 +201,14 @@ itos:
 	li	$s1, 0
 
 	beqz 	$a1, onlylow	#if there is no high part
-##################################
-#q1(h) 	 	$s2
-#r1(h)	  	$s3
-#q1(2^32)	$s4
-#r1(2^32) 	$s5
-#r2(2^32)	$s6
-#r(q(h)) 	$s7
-#q(r1(h)*r1(2^32)) $t9
-##################################	
+	
 fill_h_arr:
 	la 	$s2, hq_arr
 	la 	$s3, hr_arr
 	la	$s4, sr_arr
 	lw 	$t1, iterator
 	lw	$t2, size
-lop:	
+rep:	
 	bgt	$t1, $t2, firstpart
 	sll 	$t9, $t1, 2	#multiply iterator by size of one digit
 	addu	$t3, $t9, $s2	#4i = 4i + memory location of hq_arr
@@ -229,44 +224,13 @@ lop:
 	sw	$a1, 0($t3)
 	sw	$t4, 0($t5)
 	
-	divu	$t7, $s0
-	mflo	$t7
-	mfhi	$s5
+	divu	$t7, $s0	#2^32/10
+	mflo	$t7		#quotient
+	mfhi	$s5		#remainder
 	
-	addiu	$t1, $t1, 1
-	b lop
+	addiu	$t1, $t1, 1	#iterator
+	b rep
 
-	
-#printarrs:
-	#beqz $t1, firstpart
-	
-	#li $v0, 4
-	#la $a0, newline
-	#syscall
-	
-	#lw $t0,  0($t6)
-	#li $v0, 1
-	#move $a0, $t0
-	#syscall
-	
-	#li $v0, 4
-	#la $a0, newline
-	#syscall
-	
-	
-	#li $v0, 4
-	#la $a0, newline
-	#syscall
-	
-	#lw $t0,  0($t5)
-	#li $v0, 1
-	#move $a0, $t0
-	#syscall
-	
-	#subiu $t6, $t6, 4
-	#subiu $t5, $t5, 4
-	#subiu $t1, $t1, 1
-	#b printarrs
 firstpart:
 
 	sll	$t5, $t8, 2
@@ -274,87 +238,16 @@ firstpart:
 
 	la 	$s5, ($s3)
 	
-	lw	$t2, 0($t5) #2^32
-	lw	$t1, 0($s5) #high
-	beqz	$t2, highpart
-	b conti
+	lw	$t2, 0($t5) 	#2^32
+	lw	$t1, 0($s5) 	#high
 	
-highpart:
-	li $t9, 1#flag
-	subiu $t5, $t5, 4
-	move $a3, $t5
-	
-	li $v1, 1 #counter
-high_cont:
-	lw $t2, 0($a3) #rlast(2^32)
-	move $t5, $a3
-	sll $s5, $v1, 2
-	addu $s5, $s5, $s3
-	lw $t1, 0($s5)#rn(h)
-	
-	
-	
-	multu $t1, $t2 
-	mflo $t3
-	divu $t3, $s0
-	mfhi $s4 #r(rn(h)*rlast(2^32))
-	
-	subiu $s5, $s5, 4
-	lw $t1, 0($s5) #rn-1(h)
-	addiu $s5, $s5, 4
+	beqz	$t2, highpart	#if 2^32 is done
 	
 	multu $t1, $t2
 	mflo $t3
-	divu $t3, $s0
-	mflo $t3 #q(rn-1(h)*rlast(2^32))
-	
-	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))
-	
-	beqz $t1, enddd
-	
-	move $t0, $t8
-high_loop:
-	beqz $t0, breaker
-	lw $t6, 0($s5)	#rn(h)
-	addiu $s5, $s5, 4
-	lw $t4, 0($s5) #rn+1(h)
-	
-	
-	subiu $t5, $t5, 4
-	lw $t2, 0($t5) #rlast-1(2^32)
-	
-	multu $t4, $t2 #rn+1(h)*rlast-1(2^32)
-	mflo $t3
-	divu $t3, $s0
-	mfhi $t3 #r(rn+1(h)*rlast-1(2^32))
-	
-	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))+r(rn+1(h)*rlast-1(2^32))
-	
-	multu $t6, $t2
-	mflo $t3
 	
 	divu $t3, $s0
-	mflo $t3
-	
-	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))+r(rn+1(h)*rlast-1(2^32))
-	beqz $t4, breaker
-	
-	subiu $t0, $t0, 1
-	
-	b high_loop
-	
-breaker:
-	move $t3, $s4
-	b conv_store
-flag:
-	li $t9, 2
-	
-conti:	
-	multu $t1, $t2
-	mflo $t3
-	
-	divu $t3, $s0
-	mfhi $t3	#sum in t3
+	mfhi $t3		#sum in t3
 	
 	beqz $t8, low
 	
@@ -398,6 +291,79 @@ rv_loop:
 	addiu	$t1, $t1, 1
 	subiu	$t0, $t0, 1
 	b rv_loop
+	
+highpart:
+	li $t9, 1#flag
+	subiu $t5, $t5, 4
+	move $a3, $t5
+	
+	li $v1, 1 #counter
+high_cont:
+	lw $t2, 0($a3) #rlast(2^32)
+	move $t5, $a3
+	sll $s5, $v1, 2
+	addu $s7, $s5, $s2
+	addu $s5, $s5, $s3
+	lw $t1, 0($s5)#rn(h)
+	
+	
+	multu $t1, $t2 
+	mflo $t3
+	divu $t3, $s0
+	mfhi $s4 #r(rn(h)*rlast(2^32))
+	
+	subiu $s5, $s5, 4
+	lw $t1, 0($s5) #rn-1(h)
+	addiu $s5, $s5, 4
+	
+	multu $t1, $t2
+	mflo $t3
+	divu $t3, $s0
+	mflo $t3 #q(rn-1(h)*rlast(2^32))
+	
+	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))
+	
+	subiu $s7, $s7, 4
+	lw $t7, 0($s7)
+	beqz $t7, enddd
+	
+	
+high_loop:
+	beqz $t7, breaker
+	
+	lw $t6, 0($s5)	#rn(h)
+	
+	addiu $s5, $s5, 4
+	lw $t4, 0($s5) #rn+1(h)
+	
+	subiu $t5, $t5, 4
+	lw $t2, 0($t5) #rlast-1(2^32)
+	
+	multu $t4, $t2 #rn+1(h)*rlast-1(2^32)
+	mflo $t3
+	divu $t3, $s0
+	mfhi $t3 #r(rn+1(h)*rlast-1(2^32))
+	
+	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))+r(rn+1(h)*rlast-1(2^32))
+	
+	multu $t6, $t2
+	mflo $t3
+	
+	divu $t3, $s0
+	mflo $t3
+	
+	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))+r(rn+1(h)*rlast-1(2^32))
+	
+	
+	addiu $s7, $s7, 4
+	lw $t7, 0($s7)
+	
+	
+	b high_loop
+	
+breaker:
+	move $t3, $s4
+	b conv_store
 		
 low:
 	beqz	$s7, conv_store
@@ -440,6 +406,7 @@ onlylow:
 	b reverse
 
 enddd:	
+	bnez $s1, store_rest
 	bnez $t3, store_rest
 	b reverse
 store_rest:
@@ -453,11 +420,13 @@ store_rest:
 	sb 	$t3, ($s6)	#store char
 	addiu 	$s6, $s6, 1	#increment pointer to out
 	sb $zero, ($s6)
-
 	
-	
-
+##################################################
 reverse:
+	li $s2, 0
+	li $s3, 0
+	li $s4, 0
+	li $s6, 0
 	la $t0, out
 	move $t1, $t0
 	
@@ -480,13 +449,13 @@ revloop:
 	addiu $t0, $t0, 1
 	addiu $t1, $t1, -1
 	b revloop
-	
+##################################################
 finish:
 	la 	$a0, newline
 	li 	$v0, 4
 	syscall
 	
-	la $a0, res
+	la $a0, msg3
 	li $v0, 4
 	syscall
 
@@ -494,11 +463,13 @@ finish:
 	li $v0, 4
 	syscall
 	
+
+	
 	la $a0, newline
 	li $v0, 4
 	syscall 
 	
-	la $a0, cont
+	la $a0,	msg4
 	li $v0, 4
 	syscall
 	
@@ -515,10 +486,3 @@ finish:
 end_program:
 	li $v0, 10
 	syscall
-	
-
-	
-
-
-   		  
-   		  

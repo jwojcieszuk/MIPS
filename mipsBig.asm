@@ -101,7 +101,7 @@ loop:
 	beq $t3, 10, done
 	blt $t3, '0', done
 	bgt $t3, '9', done
-	addiu $t3, $t3, -48 #convert from ascii
+	addu $t3, $t3, -48 #convert from ascii
 		
 	srl $t6, $t0, 31 #t6 is used for the spilled bit
 	sll $t4, $t0, 1  #shift low half
@@ -122,7 +122,7 @@ loop:
 	sltu $t6, $t0, $t3 #the carry
 	addu $t1, $t1, $t6 #add the carry if any
 			
-	addiu $t2, $t2, 1 #increment pointer
+	addu $t2, $t2, 1 #increment pointer
 	b loop
 				
 done:
@@ -228,7 +228,7 @@ rep:
 	mflo	$t7		#quotient
 	mfhi	$s5		#remainder
 	
-	addiu	$t1, $t1, 1	#iterator
+	addu	$t1, $t1, 1	#iterator
 	b rep
 
 firstpart:
@@ -263,11 +263,11 @@ rv_loop:
 	
 	sll	$t2, $t1, 2
 	addu	$a3, $t2, $s3
-	addiu	$a3, $a3, 4
+	addu	$a3, $a3, 4
 	lw	$t4, 0($a3)	#q(h)
 	
 	
-	subiu	$t5, $t5, 4
+	addu	$t5, $t5, -4
 	lw	$t7, 0($t5)	#r(2^32)
 	
 	multu	$t4, $t7
@@ -288,13 +288,13 @@ rv_loop:
 	mflo $t4
 	
 	addu	$t3, $t3, $t4
-	addiu	$t1, $t1, 1
-	subiu	$t0, $t0, 1
+	addu	$t1, $t1, 1
+	addu	$t0, $t0, -1
 	b rv_loop
 	
 highpart:
 	li $t9, 1#flag
-	subiu $t5, $t5, 4
+	addu $t5, $t5, -4
 	move $a3, $t5
 	
 	li $v1, 1 #counter
@@ -312,9 +312,9 @@ high_cont:
 	divu $t3, $s0
 	mfhi $s4 #r(rn(h)*rlast(2^32))
 	
-	subiu $s5, $s5, 4
+	addu $s5, $s5, -4
 	lw $t1, 0($s5) #rn-1(h)
-	addiu $s5, $s5, 4
+	addu $s5, $s5, 4
 	
 	multu $t1, $t2
 	mflo $t3
@@ -323,7 +323,7 @@ high_cont:
 	
 	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))
 	
-	subiu $s7, $s7, 4
+	addu $s7, $s7, -4
 	lw $t7, 0($s7)
 	beqz $t7, enddd
 	
@@ -333,10 +333,10 @@ high_loop:
 	
 	lw $t6, 0($s5)	#rn(h)
 	
-	addiu $s5, $s5, 4
+	addu $s5, $s5, 4
 	lw $t4, 0($s5) #rn+1(h)
 	
-	subiu $t5, $t5, 4
+	addu $t5, $t5, -4
 	lw $t2, 0($t5) #rlast-1(2^32)
 	
 	multu $t4, $t2 #rn+1(h)*rlast-1(2^32)
@@ -355,7 +355,7 @@ high_loop:
 	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))+r(rn+1(h)*rlast-1(2^32))
 	
 	
-	addiu $s7, $s7, 4
+	addu $s7, $s7, 4
 	lw $t7, 0($s7)
 	
 	
@@ -381,12 +381,12 @@ conv_store:
 	mfhi 	$t3
 	mflo 	$s1		#the carry
 
-	addiu 	$t3, $t3, 48	#convert to ascii
+	addu 	$t3, $t3, 48	#convert to ascii
 	sb 	$t3, ($s6)	#store char
-	addiu 	$s6, $s6, 1	#increment pointer to out
-	addiu	$t8, $t8, 1	
-	addiu	$t4, $t4, 1	#increment iterator
-	addiu 	$v1, $v1, 1
+	addu 	$s6, $s6, 1	#increment pointer to out
+	addu	$t8, $t8, 1	
+	addu	$t4, $t4, 1	#increment iterator
+	addu 	$v1, $v1, 1
 	beq $t9, 1, high_cont
 	beq $t9, 2, enddd																																																																																							
 	b firstpart
@@ -397,9 +397,9 @@ onlylow:
 	mflo $s7 #quotient of C 
 	mfhi $t4 #remainder of C
 	
-	addiu $t4, $t4, 48
+	addu $t4, $t4, 48
 	sb $t4, ($s6)
-	addiu $s6, $s6, 1
+	addu $s6, $s6, 1
 	
 	bnez $s7, onlylow
 	sb $zero, ($s6)	
@@ -416,9 +416,9 @@ store_rest:
 	mfhi 	$t3
 	mflo 	$s1		#the carry
 
-	addiu 	$t3, $t3, 48	#convert to ascii
+	addu 	$t3, $t3, 48	#convert to ascii
 	sb 	$t3, ($s6)	#store char
-	addiu 	$s6, $s6, 1	#increment pointer to out
+	addu 	$s6, $s6, 1	#increment pointer to out
 	sb $zero, ($s6)
 	
 ##################################################
@@ -433,12 +433,12 @@ reverse:
 find_end:
 	lbu $t2, ($t1)
 	bltu $t2, ' ', end_found
-	addiu $t1, $t1, 1
+	addu $t1, $t1, 1
 	b find_end
 	
 end_found:
 	sb $zero, ($t1)
-	addiu $t1, $t1, -1
+	addu $t1, $t1, -1
 	
 revloop:
 	bleu $t1, $t0, finish
@@ -446,8 +446,8 @@ revloop:
 	lbu $t3, ($t1)
 	sb $t2, ($t1)
 	sb $t3, ($t0)
-	addiu $t0, $t0, 1
-	addiu $t1, $t1, -1
+	addu $t0, $t0, 1
+	addu $t1, $t1, -1
 	b revloop
 ##################################################
 finish:

@@ -1,22 +1,9 @@
-#########Register usage##########
-# $s0 - low half of first input
-# $s1 - high
-# $s2 - low half of second input
-# $s3 - high 
-
-# $s4 - low half of sum
-# $s5 - high half of sum
-
-#################################
-
-
 		.data
 msg0:		.asciiz "Give two numbers: "
 msg1:		.asciiz "Addition or multiplication?(+/*)"
 msg2:		.asciiz "Perform tests or run normally?(T/N)"
 msg3: 		.asciiz "Result: "
 msg4: 		.asciiz "Continue?(Y/N)\n"
-
 newline:	.asciiz "\n"
 	
 input:		.space 64
@@ -28,6 +15,7 @@ hq_arr:		.space 44
 hr_arr:		.space 44
 		.align 2
 sr_arr:		.space 44
+
 
 iterator:	.word 0
 size:		.word 9
@@ -82,7 +70,6 @@ main:
 	
 	b end_program
 	
-##################################################
 read_numbers:
 	
 	li $v0, 8
@@ -92,37 +79,37 @@ read_numbers:
 	
 s64toi32:
 	#string to intger put in two 32-bit registers
-	la $t2, ($a0) #pointer to string
-	li $t0, 0     #low 
-	li $t1, 0     #high
+	la $t2, ($a0) 		#pointer to string
+	li $t0, 0     		#low
+	li $t1, 0    		#high
 		
 loop:
-	lb $t3, ($t2) #loading next byte
+	lb $t3, ($t2) 		#loading next byte
 	beq $t3, 10, done
 	blt $t3, '0', done
 	bgt $t3, '9', done
-	addu $t3, $t3, -48 #convert from ascii
+	addu $t3, $t3, -48 	#convert from ascii
 		
-	srl $t6, $t0, 31 #t6 is used for the spilled bit
-	sll $t4, $t0, 1  #shift low half
-	sll $t5, $t1, 1  #shift high half
-	or $t5, $t5, $t6 #put in the spilled bit
+	srl $t6, $t0, 31 	#t6 is used for the spilled bit
+	sll $t4, $t0, 1  	#shift low half
+	sll $t5, $t1, 1  	#shift high half
+	or $t5, $t5, $t6 	#put in the spilled bit
 		
-	srl $t6, $t0, 29 #the 3 spilled bits
-	sll $t0, $t0, 3  #shift low half
-	sll $t1, $t1, 3  #shift high half
-	or $t1, $t1, $t6 #put in the spilled bits
+	srl $t6, $t0, 29 	#the 3 spilled bits
+	sll $t0, $t0, 3  	#shift low half
+	sll $t1, $t1, 3  	#shift high half
+	or $t1, $t1, $t6 	#put in the spilled bits
 
-	addu $t0, $t0, $t4 #add low halves
-	addu $t1, $t1, $t5 #add high halves
-	sltu $t6, $t0, $t4 #t6 = (t0 < t4), that is the carry
-	addu $t1, $t1, $t6 #add the carry if any
+	addu $t0, $t0, $t4 	#add low halves
+	addu $t1, $t1, $t5 	#add high halves
+	sltu $t6, $t0, $t4 	#t6 = (t0 < t4), that is the carry
+	addu $t1, $t1, $t6 	#add the carry if any
 		
-	addu $t0, $t0, $t3 #adding the digit now
-	sltu $t6, $t0, $t3 #the carry
-	addu $t1, $t1, $t6 #add the carry if any
+	addu $t0, $t0, $t3 	#adding the digit now
+	sltu $t6, $t0, $t3 	#the carry
+	addu $t1, $t1, $t6 	#add the carry if any
 			
-	addu $t2, $t2, 1 #increment pointer
+	addu $t2, $t2, 1 	#increment pointer
 	b loop
 				
 done:
@@ -130,156 +117,134 @@ done:
 	move $v1, $t1
 	
 	jr $ra
-	
-##################################################		
-addition:
-	
-	#t1 high half
-	#t0 lowhalf
-	addu $t4, $s0, $s2
-	sltu $t5, $t4, $s0 #simulate the carry flag
-	addu $t5, $t5, $s1
-	addu $t1, $t5, $s3 
-		
-	move $s7, $t4
-	move $a1, $t1
-		
-	b itos
-	
-##################################################	
-multiplication:
-	#CLL -  low 32-bits of low 64-bits of 128-bit result C ##$t0
-	#CLH = high 32-bits of low 64-bits of 128-bit result C ##$t6
-	#CHL = low 32-bits of high 64-bits of 128-bit result C ##$t9
-	#CHH = high 32-bits of high 64-bits of 128-bit result C ##$t8
-	
-	#CLL = low(AL*BL)
-	multu $s0, $s2
-	mflo $t0
-	mfhi $t1
-
-	#CLH = high(AL*BL) + low(AH*BL) + low (AL*BH)
-	#high(AL*BL) - $t1
-	#low(AH*BL) - $t2
-	#low(AL*BH) - $t4
 			
-	multu $s1, $s2
-	mflo $t2
-	mfhi $t3
+addition:
+	addu $t0, $s0, $s2 	#add low bytes
+	sltu $t2, $t0, $s0 	#the carry
+	addu $t2, $t2, $s1 	#carry + high
+	addu $t1, $t2, $s3 	#+high
 		
-	multu $s0, $s3
-	mflo $t4
-	mfhi $t5
+	move $s5, $t0 		#low
+	move $s6, $t1 		#high
 		
-	addu $t6, $t2, $t1
-	addu $t6, $t6, $t4
-		
-	#CHL = high(AH*BL) + high(AL*BH) + low(AH*BH)
-	#high(AH*BL) - $t3
-	#high(AL*BH) - $t5
-	#low(AH*BH) - $t7
-		
-	multu $s1, $s3
-	mflo $t7
-	mfhi $t8
-		
-	addu $t9, $t3, $t5
-	addu $t9, $t9, $t7
-		
-	move $a1, $t6
-	move $s7, $t0
-	
 	b itos
-##################################################
-itos:				
-	la 	$s6, out 	#output
-	li 	$s0, 10 	#divisor		
-	lw 	$t7, num 	#first quotient of 2^32/10	
-	li 	$s5, 6 		#first remainder of 2^32/10
-	li	$t8, 0		#counter
-	li	$t3, 0
-	li	$s1, 0
 
-	beqz 	$a1, onlylow	#if there is no high part
+multiplication:
+	#low 32-bits of 64-bit result = low(AL*BL)
+	#high 32-bits of 64-bit result = high(AL*BL) + low(AH*BL) + low(AL*BH)
+	
+	multu $s0, $s2 		#AL*BL
+	mflo $t0 		#low(AL*BL)
+	mfhi $t1 		#high(AL*BL)
+
+	multu $s1, $s2 		#AH*BL
+	mflo $t2 		#low(AH*BL)
+	
+	addu $t1, $t1, $t2 	#high(AL*BL) + low(AH*BL)
+	
+	multu $s0, $s3 		#AL*BH
+	mflo $t2 		#low(AL*BH)
+	
+	addu $t1, $t1, $t2 	#high(AL*BL) + low(AH*BL) + low(AL*BH)
+
+	move $s5, $t0 		#low
+	move $s6, $t1 		#high
+
+################## Register Usage in itos ##################
+#-$s0 constant 10
+#-$s1 carry
+#-$s2 hq_arr
+#-$s3 hr_arr
+#-$s4 sr_arr
+#-$s5 low part of 64-bit integer
+#-$s6 high part of 64-bit integer
+#-$s7 resulting 64-bit string
+############################################################
+itos:	
+	li $s0, 10 		#divisor
+	li $s1, 0			
+	la $s7, out 		#output
+		
+	li $t3, 0	
+	li $t6, 6 		#first remainder of 2^32/10
+	li $t8, 0
+		
+	beqz $s6, onlylow	#if there is no high part
 	
 fill_h_arr:
-	la 	$s2, hq_arr
-	la 	$s3, hr_arr
-	la	$s4, sr_arr
-	lw 	$t1, iterator
-	lw	$t2, size
+	lw $t0, num 		#first quotient of 2^32/10
+	la $s2, hq_arr
+	la $s3, hr_arr
+	la $s4, sr_arr
+	lw $t2, iterator
+	lw $t3, size
+	li $t9, 0
 rep:	
-	bgt	$t1, $t2, firstpart
-	sll 	$t9, $t1, 2	#multiply iterator by size of one digit
-	addu	$t3, $t9, $s2	#4i = 4i + memory location of hq_arr
-	addu	$t5, $t9, $s3	#hr_arr
-	addu	$t6, $t9, $s4	#sr_arr
+	bgt $t2, $t3, firstpart
+	sll $t4, $t2, 2		#multiply iterator by size of one digit
 	
-	divu 	$a1, $s0	#h/10
-	mflo 	$a1		#quotient
-	mfhi	$t4		#remainder
-
+	divu $s6, $s0		#h/10
+	mflo $s6		#quotient
 	
-	sw	$s5, 0($t6)	
-	sw	$a1, 0($t3)
-	sw	$t4, 0($t5)
+	addu $t5, $t4, $s2	#memory location of hq_arr
+	sw $t1, 0($t5) 		#store quo(h)
 	
-	divu	$t7, $s0	#2^32/10
-	mflo	$t7		#quotient
-	mfhi	$s5		#remainder
+	mfhi $t1
+	addu $t5, $t4, $s3
+	sw $t1, 0($t5)
 	
-	addu	$t1, $t1, 1	#iterator
+	addu $t5, $t4, $s4
+	sw $t6, 0($t5)
+	
+	divu $t0, $s0		#2^32/10
+	mflo $t0		#quotient
+	mfhi $t6		#remainder
+	
+	addu $t2, $t2, 1	#iterator
 	b rep
 
 firstpart:
-
-	sll	$t5, $t8, 2
-	addu	$t5, $t5, $s4
-
-	la 	$s5, ($s3)
+	sll $t5, $t8, 2
+	addu $t4, $t5, $s3	#memory location of hr_arr
+	addu $t5, $t5, $s4 	#memory location of sr_arr
+	lw $t2, 0($t5) 		#rem(2^32)	
+	lw $t1, 0($s3) 		#rem(high)
 	
-	lw	$t2, 0($t5) 	#2^32
-	lw	$t1, 0($s5) 	#high
+	beqz $t2, highpart	#if 2^32 is done
 	
-	beqz	$t2, highpart	#if 2^32 is done
-	
-	multu $t1, $t2
+	multu $t1, $t2		#r(h)*r(2^32)
 	mflo $t3
 	
 	divu $t3, $s0
-	mfhi $t3		#sum in t3
+	mfhi $t3		#rem(r(h)*r(2^32)
 	
-	beqz $t8, low
+	beqz $t8, low		#if it is first iteration, go straight to addition of low
 	
-	lw	$t1, iterator
-	move	$t0, $t8
+	lw $t1, iterator
+	move $t0, $t8
+	
 rv_loop:
-	#t1 iterator starting from 0
-	#t0 counter of iterations
-	#t3 sum
-	#t5 address of current element in s4 array
+	beqz $t0, low	
 	
-	beqz	$t0, low
-	
-	sll	$t2, $t1, 2
-	addu	$a3, $t2, $s3
-	addu	$a3, $a3, 4
-	lw	$t4, 0($a3)	#q(h)
+	sll $t2, $t1, 2		#shift iterator
+	addu $t4, $t2, $s3	#memory location of hr_arr
+	addu $t4, $t4, 4	
+	lw $t4, 0($t4)		#rn(h)
 	
 	
-	addu	$t5, $t5, -4
-	lw	$t7, 0($t5)	#r(2^32)
+	addu $t5, $t5, -4
+	lw $t7, 0($t5)		#rn-1(2^32)
 	
-	multu	$t4, $t7
-	mflo	$t4
+	multu $t4, $t7		#rn(h)*rn-1(2^32)
+	mflo $t4
 	
-	divu	$t4, $s0
-	mfhi	$t4
+	divu $t4, $s0
+	mfhi $t4		#rem(rn(h)*rn-1(2^32))
 	
-	addu 	$t3, $t3, $t4
+	addu $t3, $t3, $t4
 	
-	addu	$t4, $t2, $s3
-	lw	$t6, 0($t4) 	#r(h)
+	addu $t4, $t2, $s3	
+	lw $t6, 0($t4) 		#r(h)
 	
 	multu $t6, $t7
 	mflo $t4
@@ -287,146 +252,141 @@ rv_loop:
 	divu $t4, $s0
 	mflo $t4
 	
-	addu	$t3, $t3, $t4
-	addu	$t1, $t1, 1
-	addu	$t0, $t0, -1
+	addu $t3, $t3, $t4
+	addu $t1, $t1, 1
+	addu $t0, $t0, -1
 	b rv_loop
 	
 highpart:
-	li $t9, 1#flag
+	li $t9, 1		#set flag
 	addu $t5, $t5, -4
 	move $a3, $t5
 	
-	li $v1, 1 #counter
+	li $t8, 1		#initialize counter
 high_cont:
-	lw $t2, 0($a3) #rlast(2^32)
+	lw $t2, 0($a3) 		#rlast(2^32)
 	move $t5, $a3
-	sll $s5, $v1, 2
-	addu $s7, $s5, $s2
-	addu $s5, $s5, $s3
-	lw $t1, 0($s5)#rn(h)
+	sll $t7, $t8, 2
+	addu $t6, $t7, $s2
+	
+	addu $t7, $t7, $s3
+	lw $t1, 0($t7)		#rn(h)
 	
 	
 	multu $t1, $t2 
 	mflo $t3
 	divu $t3, $s0
-	mfhi $s4 #r(rn(h)*rlast(2^32))
+	mfhi $t3 		#r(rn(h)*rlast(2^32))
 	
-	addu $s5, $s5, -4
-	lw $t1, 0($s5) #rn-1(h)
-	addu $s5, $s5, 4
+	addu $t7, $t7, -4
+	lw $t1, 0($t7) 		#rn-1(h)
+	addu $t7, $t7, 4
 	
 	multu $t1, $t2
-	mflo $t3
-	divu $t3, $s0
-	mflo $t3 #q(rn-1(h)*rlast(2^32))
+	mflo $t4
+	divu $t4, $s0
+	mflo $t4 		#q(rn-1(h)*rlast(2^32))
 	
-	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))
+	addu $t3, $t3, $t4 	#r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))
 	
-	addu $s7, $s7, -4
-	lw $t7, 0($s7)
-	beqz $t7, enddd
+	addu $t6, $t6, 4
+	lw $t0, 0($t6)
+	beqz $t0, finish_itos
 	
 	
 high_loop:
-	beqz $t7, breaker
+	beqz $t0, conv_store
 	
-	lw $t6, 0($s5)	#rn(h)
+	lw $t0, 0($t7)		#rn(h)
 	
-	addu $s5, $s5, 4
-	lw $t4, 0($s5) #rn+1(h)
+	addu $t7, $t7, 4
+	lw $t1, 0($t7) 		#rn+1(h)
 	
 	addu $t5, $t5, -4
-	lw $t2, 0($t5) #rlast-1(2^32)
+	lw $t2, 0($t5)		#rlast-1(2^32)
 	
-	multu $t4, $t2 #rn+1(h)*rlast-1(2^32)
-	mflo $t3
-	divu $t3, $s0
-	mfhi $t3 #r(rn+1(h)*rlast-1(2^32))
+	multu $t1, $t2 		#rn+1(h)*rlast-1(2^32)
+	mflo $t4
+	divu $t4, $s0
+	mfhi $t4 		#r(rn+1(h)*rlast-1(2^32))
 	
-	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))+r(rn+1(h)*rlast-1(2^32))
+	addu $t3, $t3, $t4 	#r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))+r(rn+1(h)*rlast-1(2^32))
 	
-	multu $t6, $t2
-	mflo $t3
+	multu $t0, $t2
+	mflo $t4
 	
-	divu $t3, $s0
-	mflo $t3
+	divu $t4, $s0
+	mflo $t4
 	
-	addu $s4, $s4, $t3 #r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))+r(rn+1(h)*rlast-1(2^32))
+	addu $t3, $t3, $t4 	#r(rn(h)*rlast(2^32)) + q(rn-1(h)*rlast(2^32))+r(rn+1(h)*rlast-1(2^32))
 	
 	
-	addu $s7, $s7, 4
-	lw $t7, 0($s7)
+	addu $t6, $t6, 4
+	lw $t0, 0($t6)
 	
 	
 	b high_loop
 	
-breaker:
-	move $t3, $s4
-	b conv_store
-		
 low:
-	beqz	$s7, conv_store
+	beqz $s5, conv_store
 	
-	divu 	$s7, $s0	#low/10
-	mflo 	$s7 		#q1(l)
-	mfhi 	$t1		#r1(l)
+	divu $s5, $s0		#low/10
+	mflo $s5 		#q1(l)
+	mfhi $t1		#r1(l)
 
-	addu 	$t3, $t3, $t1	#add r(l)
+	addu $t3, $t3, $t1	#add r(l)
 	
 conv_store:
-	addu 	$t3, $t3, $s1	#add carry
+	addu $t3, $t3, $s1	#add carry
 	
-	divu 	$t3, $s0	#rem of sum
-	mfhi 	$t3
-	mflo 	$s1		#the carry
+	divu $t3, $s0		#rem of sum
+	mfhi $t3
+	mflo $s1		#the carry
 
-	addu 	$t3, $t3, 48	#convert to ascii
-	sb 	$t3, ($s6)	#store char
-	addu 	$s6, $s6, 1	#increment pointer to out
-	addu	$t8, $t8, 1	
-	addu	$t4, $t4, 1	#increment iterator
-	addu 	$v1, $v1, 1
-	beq $t9, 1, high_cont
-	beq $t9, 2, enddd																																																																																							
+	addu $t3, $t3, 48	#convert to ascii
+	sb $t3, ($s7)		#store char
+	addu $s7, $s7, 1	#increment pointer to out
+	addu $t8, $t8, 1	#increment counter
+	beq $t9, 1, high_cont																																																																																						
 	b firstpart
 	
 onlylow:
-	#C/10
-	divu $s7, $s0
-	mflo $s7 #quotient of C 
-	mfhi $t4 #remainder of C
+	divu $s7, $s0		#low/10
+	mflo $s7 		
+	mfhi $t4 		
 	
 	addu $t4, $t4, 48
-	sb $t4, ($s6)
-	addu $s6, $s6, 1
+	sb $t4, ($s7)
+	addu $s7, $s7, 1
 	
 	bnez $s7, onlylow
-	sb $zero, ($s6)	
+	sb $zero, ($s7)	
 	b reverse
 
-enddd:	
+finish_itos:	
 	bnez $s1, store_rest
 	bnez $t3, store_rest
+	sb $zero, ($s7)
 	b reverse
-store_rest:
-	addu 	$t3, $t3, $s1	#add carry
 	
-	divu 	$t3, $s0	#rem of sum
-	mfhi 	$t3
-	mflo 	$s1		#the carry
+store_rest:
+	addu $t3, $t3, $s1	#add carry
+	
+	divu $t3, $s0	
+	mfhi $t3		#remainder to be converted to char and stored
+	mflo $s1		#the carry
 
-	addu 	$t3, $t3, 48	#convert to ascii
-	sb 	$t3, ($s6)	#store char
-	addu 	$s6, $s6, 1	#increment pointer to out
-	sb $zero, ($s6)
+	addu $t3, $t3, 48	#convert to ascii
+	sb $t3, ($s7)	#store char
+	addu $s7, $s7, 1	#increment pointer to out
+	sb $zero, ($s7)
 	
 ##################################################
 reverse:
 	li $s2, 0
 	li $s3, 0
 	li $s4, 0
-	li $s6, 0
+	li $s7, 0
 	la $t0, out
 	move $t1, $t0
 	
@@ -451,8 +411,8 @@ revloop:
 	b revloop
 ##################################################
 finish:
-	la 	$a0, newline
-	li 	$v0, 4
+	la $a0, newline
+	li $v0, 4
 	syscall
 	
 	la $a0, msg3
@@ -463,7 +423,6 @@ finish:
 	li $v0, 4
 	syscall
 	
-
 	
 	la $a0, newline
 	li $v0, 4
